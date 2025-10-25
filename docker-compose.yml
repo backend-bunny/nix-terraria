@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  tmodloader-server:
+    image: ghcr.io/backend-bunny/nix-terraria:latest
+    container_name: tmodloader-server
+    restart: unless-stopped
+    ports:
+      - "7777:7777/tcp"
+      - "7777:7777/udp"
+    volumes:
+      - tmodloader-data:/var/lib/tmodloader
+    environment:
+      # Basic tModLoader configuration
+      TERRARIA_PORT: "7777"
+      TERRARIA_MAXPLAYERS: "16"
+      TERRARIA_PASSWORD: ""  # Set a password if desired
+      TERRARIA_WORLDSIZE: "medium"  # small, medium, or large
+
+      # Mod configuration (Steam Workshop IDs)
+      # Example: Calamity Mod + Calamity Music
+      # TERRARIA_MODS: "2824688072,2824688266"
+      TERRARIA_MODS: ""  # Add comma-separated mod IDs here    # Uncomment the following lines if you want to limit resources
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2.0'
+    #       memory: 2G
+    #     reservations:
+    #       cpus: '1.0'
+    #       memory: 1G
+
+volumes:
+  tmodloader-data:
