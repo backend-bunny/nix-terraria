@@ -42,7 +42,8 @@ jobs:
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
         sudo rm -rf /opt/hostedtoolcache/CodeQL
-        sudo docker image prune --all --force
+        sudo docker image prune --all --force || true
+        echo "Disk space after cleanup:"
         df -h
 
     - name: Build KubeVirt Image

@@ -35,7 +35,7 @@
               # Add the tmodloader overlay for the tmodloader-server package
               nixpkgs.overlays = [ nix-tmodloader.overlays.default ];
               # Basic system configuration
-              system.stateVersion = "24.05";
+              system.stateVersion = "25.11";
 
               # Allow unfree packages (needed for terraria-server)
               nixpkgs.config.allowUnfree = true;
@@ -56,9 +56,6 @@
               users.users.admin = {
                 isNormalUser = true;
                 extraGroups = [ "wheel" ];
-                openssh.authorizedKeys.keys = [
-                  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGwZajpAW5F8WCM3yGZymYVznBtaiJcnBNz7IMAfUHZM sara@wsl-general-tso"
-                ];
               };
 
               # Network configuration for KubeVirt
@@ -73,12 +70,11 @@
                 useDHCP = true;
               };
 
-              # KubeVirt module already enables cloud-init and other necessary services
-
               # tModLoader server service using nix-tmodloader module
               services.tmodloader = {
                 enable = true;
                 makeAttachScripts = true;
+                dataDir = "/mnt/terraria-data/tmodloader";
                 servers.main = lib.mkMerge [
                   {
                     enable = true;
@@ -92,25 +88,6 @@
                     noupnp = true;
                     install = lib.mkDefault [];  # No mods by default, can be overridden
                   }
-                  # Environment-based configuration for runtime customization
-                  (lib.mkIf (builtins.getEnv "TERRARIA_PORT" != "") {
-                    port = lib.toInt (builtins.getEnv "TERRARIA_PORT");
-                  })
-                  (lib.mkIf (builtins.getEnv "TERRARIA_MAXPLAYERS" != "") {
-                    players = lib.toInt (builtins.getEnv "TERRARIA_MAXPLAYERS");
-                  })
-                  (lib.mkIf (builtins.getEnv "TERRARIA_PASSWORD" != "") {
-                    password = builtins.getEnv "TERRARIA_PASSWORD";
-                  })
-                  (lib.mkIf (builtins.getEnv "TERRARIA_WORLDSIZE" != "") {
-                    autocreate = builtins.getEnv "TERRARIA_WORLDSIZE";
-                  })
-                  (lib.mkIf (builtins.getEnv "TERRARIA_MODS" != "") {
-                    install = lib.pipe (builtins.getEnv "TERRARIA_MODS") [
-                      (lib.splitString ",")
-                      (map lib.toInt)
-                    ];
-                  })
                 ];
               };
 
@@ -121,7 +98,6 @@
                 htop
                 tmux
                 vim
-                git
               ];
             })
           ];
