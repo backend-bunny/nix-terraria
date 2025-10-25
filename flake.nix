@@ -1,5 +1,5 @@
 {
-  description = "Flake for building terraria server docker image";
+  description = "NixOS tModLoader server with KubeVirt container disk support";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -17,32 +17,11 @@
     nix-tmodloader,
   }:
     flake-utils.lib.eachDefaultSystem (
-      system: let
-        pkgs = import nixpkgs {inherit system;};
-      in rec {
+      system: rec {
         packages = {
-          default = packages.docker;
-          docker = pkgs.dockerTools.buildLayeredImage {
-            name = "terraria-server";
-            tag = "latest";
-            contents = with pkgs; [
-              self.nixosConfigurations.terraria-server.config.system.build.toplevel
-              bashInteractive
-              coreutils
-            ];
-            uname = "terraria";
-            gname = "terraria";
-            config = {
-              Cmd = [ "${self.nixosConfigurations.terraria-server.config.system.build.toplevel}/init" ];
-              ExposedPorts = {
-                "7777/tcp" = {};
-                "7777/udp" = {};
-              };
-              Env = [
-                "PATH=/run/current-system/sw/bin"
-              ];
-            };
-          };
+          default = packages.kubevirt-image;
+          vm-image = self.nixosConfigurations.terraria-server.config.system.build.vm;
+          kubevirt-image = self.nixosConfigurations.terraria-server.config.system.build.kubevirtImage;
         };
       }
     ) // {
@@ -51,23 +30,50 @@
           system = "x86_64-linux";
           modules = [
             nix-tmodloader.nixosModules.tmodloader
+            "${nixpkgs}/nixos/modules/virtualisation/kubevirt.nix"
             ({ pkgs, lib, ... }: {
               # Add the tmodloader overlay for the tmodloader-server package
               nixpkgs.overlays = [ nix-tmodloader.overlays.default ];
               # Basic system configuration
-              system.stateVersion = "25.11";
+              system.stateVersion = "24.05";
 
               # Allow unfree packages (needed for terraria-server)
               nixpkgs.config.allowUnfree = true;
 
-              # Enable systemd in container
-              boot.isContainer = true;
+              # Boot configuration for KubeVirt (already configured by the module)
+              # The KubeVirt module handles most of the configuration automatically
 
-              # Network configuration
+              # Enable SSH for remote administration
+              services.openssh = {
+                enable = true;
+                settings = {
+                  PasswordAuthentication = false;
+                  PermitRootLogin = "no";
+                };
+              };
+
+              # Create a user for server administration
+              users.users.admin = {
+                isNormalUser = true;
+                extraGroups = [ "wheel" ];
+                openssh.authorizedKeys.keys = [
+                  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGwZajpAW5F8WCM3yGZymYVznBtaiJcnBNz7IMAfUHZM sara@wsl-general-tso"
+                ];
+              };
+
+              # Network configuration for KubeVirt
               networking = {
                 hostName = "terraria-server";
-                firewall.enable = true;
+                firewall = {
+                  enable = true;
+                  allowedTCPPorts = [ 22 7777 ]; # SSH
+                  allowedUDPPorts = [ 7777 ]; # Terraria default port
+                };
+                # Use DHCP for dynamic networking
+                useDHCP = true;
               };
+
+              # KubeVirt module already enables cloud-init and other necessary services
 
               # tModLoader server service using nix-tmodloader module
               services.tmodloader = {
@@ -86,7 +92,7 @@
                     noupnp = true;
                     install = lib.mkDefault [];  # No mods by default, can be overridden
                   }
-                  # Environment-based configuration for Docker containers
+                  # Environment-based configuration for runtime customization
                   (lib.mkIf (builtins.getEnv "TERRARIA_PORT" != "") {
                     port = lib.toInt (builtins.getEnv "TERRARIA_PORT");
                   })
@@ -108,21 +114,15 @@
                 ];
               };
 
-              # Install necessary packages
+              # Install necessary packages for server administration
               environment.systemPackages = with pkgs; [
                 coreutils
                 bash
+                htop
+                tmux
+                vim
+                git
               ];
-
-              # Container-specific optimizations
-              services.openssh.enable = false;
-              services.nscd.enable = false;
-              system.nssModules = lib.mkForce [];
-
-              # Minimal systemd services for container
-              systemd.services."getty@".enable = false;
-              systemd.services."serial-getty@".enable = false;
-              systemd.services.systemd-logind.enable = false;
             })
           ];
         };
