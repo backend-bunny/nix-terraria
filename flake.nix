@@ -32,8 +32,19 @@
             nix-tmodloader.nixosModules.tmodloader
             "${nixpkgs}/nixos/modules/virtualisation/kubevirt.nix"
             ({ pkgs, lib, ... }: {
-              # Add the tmodloader overlay for the tmodloader-server package
-              nixpkgs.overlays = [ nix-tmodloader.overlays.default ];
+              # Add the tmodloader overlay with version override
+              nixpkgs.overlays = [
+                nix-tmodloader.overlays.default
+                (final: prev: {
+                  tmodloader-server = prev.tmodloader-server.overrideAttrs (oldAttrs: {
+                    version = "v2025.08.3.1";
+                    src = pkgs.fetchurl {
+                      url = "https://github.com/tModLoader/tModLoader/releases/download/v2025.08.3.1/tModLoader.zip";
+                      hash = "sha256-ZgHDNc8MCFA9Gd+ZZU6yw+7tSqBiyDS+Tl0ZtNnMeHU=";
+                    };
+                  });
+                })
+              ];
               # Basic system configuration
               system.stateVersion = "25.11";
 
@@ -81,7 +92,7 @@
                     autoStart = true;
                     port = lib.mkDefault 7777;
                     players = lib.mkDefault 8;
-                    password = lib.mkDefault null;  # No password by default
+                    password = lib.mkDefault "BottomlessHoleussy";
                     autocreate = lib.mkDefault "medium";  # small, medium, or large
                     openFirewall = true;
                     secure = true;
